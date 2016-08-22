@@ -1,11 +1,15 @@
+char buffer[10240];
+
 #include <stdint.h>
+#include "inb.c"
+#include "serial.h"
+#include "string.h"
 #include "b_tree.h"
 #include "memory.h"
 #include "stdbool.h"
 #include "typeop.h"
 #include "b_tree.c"
 #include "memory.c"
-#include "inb.c"
 #include "input.c"
 #include "time.c"
 #include "screen.c"

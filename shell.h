@@ -6,18 +6,19 @@
 
 #define MAX_COMMANDS 100
 
-typedef struct
-{
-    char * name;
-    char * description;
-    void * function;
-} command_table_t;
+typedef struct command_table command_table_t;
 
 typedef void (*myFunc_v)();
 
 void print(char * str);
+void printj(char * str);
+void printij(uint32_t i);
+void printijp(uint32_t i);
+void printc(char c);
 void next_line();
 void help_command();
+void print_mem();
+void mem_tree();
 
 void init_shell();
 void shell();

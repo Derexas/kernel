@@ -1,75 +1,79 @@
 
 #include "memory.h"
+#include "shell.h"
 
 uint8_t dynamic_memory[memory_size];
 uint32_t n_blocks = 0;
 uint32_t mem_left = memory_size; // Total
 
-tree_t * free_mem_tree;
+tree_t free_memory_tree;
+tree_t * free_mem_tree = &free_memory_tree;
+leaf_t free_mem_leafs[max_free_blocks];
+uint16_t free_leaf_pile[max_free_blocks];
+uint32_t flp_pointer = max_free_blocks - 1;
 
-uint8_t aa[1024]; uint32_t malloc_count = 0;
+uint8_t ez[8000]; // error zone
+uint32_t malloc_count = 0;
     
-/*uint8_t comp23 (uint32_t k1, uint32_t k2) {
-    return (k1 > k2) ? 1 : (k1 < k2) ? -1 : 0;
-};*/
+leaf_t * create_leaf_in_pile(uint32_t key, void * data )
+{
+    uint16_t location = free_leaf_pile[flp_pointer--];
+    return create_leaf_there(key, data, &free_mem_leafs[location]);
+}
+
+void remove_leaf_from_pile(void * leaf_adr)
+{
+    uint32_t position = (leaf_adr - (void*)free_mem_leafs) / sizeof(leaf_t);
+    
+    printc(':');printc(position+'0');
+    next_line();
+    free_leaf_pile[++flp_pointer] = position;
+}
 
 void init_memory()
 {
-    uint32_t counter = 0;
-    void * a(uint32_t b) {
-        counter += b;
-        return (void*)(counter - b + (uint32_t)dynamic_memory);
-    };
-    *(char*)a(1) = ucode;
-    carve_uint32(sizeof(tree_t), a( sizeof(uint32_t) )); //carve the mem tree size at the beginning
-    free_mem_tree = a( sizeof(tree_t) );
-    *(char*)a(1) = ucode;
-    *(char*)a(1) = ucode;
-    carve_uint32(sizeof(leaf_t), a( sizeof(uint32_t) )); //carve the root size
-    leaf_t * leaf = a( sizeof(leaf_t) );
-    *(char*)a(1) = ucode;
-    mem_left -= counter;
-    *(char*)a(0) = fcode; //carve the free memory block
-    carve_uint32(mem_left, a(0)+1); //carve the free mem size
-    dynamic_memory[memory_size - 1] = fcode;
-    carve_uint32(mem_left, dynamic_memory + memory_size - 4 - 1);
-    
-    leaf->key = mem_left;
-    leaf->data = a( 0 );
-    leaf->left = 0;    leaf->right = 0;    leaf->height = 1;
-    free_mem_tree->root = leaf;
-    free_mem_tree->size = 1;
-    counter += 10;
+    for (uint32_t i = 0; i < max_free_blocks; i++)
+        free_leaf_pile[flp_pointer - i] = i;
+    free_mem_tree->root = create_leaf_in_pile(memory_size, dynamic_memory);
+    free_mem_tree->size = 0;
 }
-
-//char STF() { return (char)(free_mem_tree->comp(1, 2)) + '0'; }
 
 // ..|ucode|n|data of size n|..|fcode|x|empty space of size x|..|<fcode(y)|empty space of size y|.. (0 when there's not 2o to have |1|0|) <- OLD MODEL
 void * malloc(uint32_t requested_size)
-{malloc_count++;
+{
+    malloc_count++;
     uint32_t needed_size = requested_size + size_storing_size + 2; // 4 for storing the block size
-    if (needed_size > mem_left)
+    if (needed_size > mem_left) {
+        print("not enough mem_left");
         return 0;
-    
+    }
+    //printc('a');
     leaf_t * leaf_found = find_leaf(free_mem_tree, needed_size); // the pointer to the concerned leaf
     if (leaf_found == 0) {
+        print("free block not found");
         return 0;
     }
     
     uint8_t * block_found = leaf_found->data;
-    if(block_found < dynamic_memory || block_found > dynamic_memory+memory_size-1)
+    if(block_found < dynamic_memory || block_found > dynamic_memory+memory_size-1) {
+        print("block->data not included in mem. a:");
+        uint32_t a = (uint32_t)block_found;
+        print(its_p((int)a, ez));
         return 0;
+    }
     
     uint32_t leaf_size = leaf_found->key;
-    
-    if (leaf_size > needed_size) { // update leaf and free block
-        detach_leaf(free_mem_tree, leaf_size, block_found);
+    uint32_t dif = leaf_size - needed_size;
+    detach_leaf(free_mem_tree, leaf_size, block_found);
+    if (dif > 0) { // update leaf and free block
         leaf_found->key = leaf_size - needed_size;
         leaf_found->data += needed_size;
+        leaf_found->left = leaf_found->right = 0;
+        leaf_found->height = 1;
         add_leaf_to_leaf(&free_mem_tree->root, leaf_found);
-        carve_free_block(block_found + needed_size, leaf_size - needed_size); // re-carve the updated free block        
-    } else {        
-        remove_leaf(free_mem_tree, leaf_size, block_found); // remove leaf
+        carve_free_block(block_found + needed_size, leaf_size - needed_size); // re-carve the updated free block
+    } else { // then equals
+        remove_leaf_from_pile(leaf_found); // remove leaf from pile
     }
     
     mem_left -= needed_size;
@@ -83,57 +87,111 @@ void * malloc(uint32_t requested_size)
     return block_found;
 }
 
-uint8_t mfree(uint8_t * block_to_free)
+uint8_t mfree(void * block_to_free)
 {
-    if(block_to_free < dynamic_memory || block_to_free > dynamic_memory+memory_size-1)
+    if((uint8_t*)block_to_free < dynamic_memory || (uint8_t*)block_to_free > dynamic_memory+memory_size-1)
         return 0;
     
     uint8_t can_fuse_with_nearby = 0;
     // HOW CAN I FIND THE NEARBY BLOCKS ?? D: -> ONE BYTE AT EACH SIDE OF EACH BLOCK ? BUT STILL CAN'T KNOW THEIR SIZES D:
     // OLD METHOD OF INDICATING SIZE AT BEGINNING TOO POSSIBLE, BUT HAS TO BE INDICATED AT THE END TOO (only for free space)
     
-    uint32_t key = *(uint32_t*)(block_to_free - size_storing_size);
-    uint8_t * data = block_to_free;
-    
-    uint8_t * next = block_to_free + key;
+    uint8_t * data = block_to_free - size_storing_size - 1;
+    uint32_t key = *(uint32_t*)(data+1) + size_storing_size + 2;
+        carve_free_block(data, key);
+        *data = *(data + key - 1) = fcode+3;
+    uint8_t * next = data + key;
+    uint32_t nkey = 0;
+    leaf_t * nleaf = 0;
     if (*next == fcode) // then big free block (size > 127)
-        key += 1 + size_storing_size + *(uint32_t*)(next + 1);
+        nkey = *(uint32_t*)(next + 1); //free block have the exact size written
     else if (*next < fcode) // then tiny free block (size < fcode)
-        key += *next;
-    if (*next <= fcode)
-        remove_leaf(free_mem_tree, key, data);
-    
-    uint8_t * prev = block_to_free - size_storing_size - 1;
-    if (*prev == fcode) {
-        key += 1 + size_storing_size + *(uint32_t*)(prev - 1 - size_storing_size);
-        data -= *(uint32_t*)(prev - 1 - size_storing_size);
-    } else if (*prev < fcode) {
-        key += *prev;
-        data -= *prev;
+        nkey = *next;
+    if (*next <= fcode) {
+        nleaf = detach_leaf(free_mem_tree, nkey, next);
+        *next = fcode+3;
+        print("nleaf:");printijp((uint32_t)nleaf);
+        //blah("next:", nleaf, 0);
+        //if (nleaf != 0)
+            key += nkey;
     }
     
-    if (!can_fuse_with_nearby)
-        insert_data(free_mem_tree, key, block_to_free);
+    uint8_t * prev = data - 1;
+    uint32_t pkey = 0;
+    leaf_t * pleaf = 0;
+    if (*prev == fcode) {
+        pkey = *(uint32_t*)(prev - size_storing_size);
+    } else if (*prev < fcode) {
+        pkey = *prev;
+    }
+    if (*prev <= fcode) {
+        *prev = fcode+3;
+        prev -= pkey - 1;//(2 + size_storing_size);
+        pleaf = find_leaf(free_mem_tree, pkey);
+        //(leaf_t*)(prev - (uint8_t*)pkey + 1);
+        print("pleaf:");printijp((uint32_t)data);
+        printijp((uint32_t)pleaf);
+        
+        pleaf = detach_leaf(free_mem_tree, pkey, prev);
+        printijp((uint32_t)pleaf);
+        if (nleaf != 0) {
+            write_serial_word("pleaf:");
+            write_serial_word(its_p((uint32_t)pleaf, buffer));
+            remove_leaf_from_pile(pleaf); //WHY NOT DEAD ? :(
+            write_serial_word("done\n");
+        }
+        key += pkey;
+        data -= pkey;
+    }
+    
+    int32_t dif = key - (sizeof(leaf_t) + size_storing_size + 2);
+    if (1/*dif < 0*/) {
+        leaf_t * leaf = 0;
+        if (nleaf != 0 || pleaf != 0) {
+            leaf = (nleaf != 0)? nleaf : pleaf;
+            leaf->key = key;
+            leaf->data = data;
+            leaf->left = leaf->right = 0;
+            leaf->height = 1;
+        } else {            
+            leaf = create_leaf_in_pile(key, data);
+        }
+        add_leaf_to_leaf(&(free_mem_tree->root), leaf);
+        carve_free_block(data, key);
+    } else {
+        /*carve_used_block(data, sizeof(leaf_t));
+        leaf_t * leaf = (void*)data + 1 + size_storing_size;
+        leaf->key = key;
+        leaf->data = data;
+        leaf->left = 0;     leaf->right = 0;    leaf->height = 1;
+        add_leaf_to_leaf(&(free_mem_tree->root), leaf);
+        data += (sizeof(leaf_t) + size_storing_size + 2);
+        key = dif;
+        if (dif > 0)
+            carve_free_block(data, key);*/
+    }
+    //strcopy(buffer+strlen(buffer), "]");
+}
+
+void carve_used_block(uint8_t * block, uint32_t bsize)
+{
+    *block = *(block + bsize + size_storing_size + 1) = ucode;
+    carve_uint32(bsize, block + 1);
 }
 
 void carve_free_block(uint8_t * block, uint32_t bsize)
 {
-    if (bsize > (1 + size_storing_size)*2) {
+    if (bsize >= (1 + size_storing_size)*2) {
         *block = *(block + bsize - 1) = fcode;
         carve_uint32(bsize, block + 1);
-        carve_uint32(bsize, block - size_storing_size - 1);
-    } else
+        carve_uint32(bsize, block + bsize - size_storing_size - 1);
+    } else if (bsize > 0)
         *block = *(block + bsize - 1) = (uint8_t)bsize;
 }
 
 char stuffx(int x)
 {
     return itc(dynamic_memory[x]);
-}
-
-char stuffa(int x)
-{
-    return itc(aa[x]);
 }
 
 uint32_t read_uint32(uint8_t * block)

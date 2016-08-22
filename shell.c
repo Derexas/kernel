@@ -1,22 +1,31 @@
 
 #include "shell.h"
+#include "string.c"
+
+struct command_table
+{
+    char * name;
+    char * description;
+    void * function;
+};
 
 char * symbol;
 command_table_t CommandTable[MAX_COMMANDS];
 unsigned int NumberOfCommands;
 unsigned int current_pos;
-char command_str[4096];
+uint32_t decal = 0;
 
 void print(char * str)
 {
     unsigned int current_line = current_pos/SCREEN_WIDTH;
     unsigned int current_column = current_pos - current_line*SCREEN_WIDTH;
     uint32_t lines_jumped = print_str_to_screen(str, current_column, current_line);
+    //print_from_command_str(decal);
     if (lines_jumped > 0) {
         current_pos += (lines_jumped + 1) * SCREEN_WIDTH; // +1 for the print of lines_jumped
         current_line = current_pos/SCREEN_WIDTH;
         current_column = current_pos - current_line*SCREEN_WIDTH;
-        print_str_to_screen(its(lines_jumped), current_column, current_line);
+        //print_str_to_screen(its(lines_jumped), current_column, current_line);
     } else       
         current_pos += strlen(str);
 }
@@ -27,12 +36,30 @@ void printj(char * str)
     next_line();
 }
 
-void printc(char c)
+void printij(uint32_t i)
+{
+    char * str = its(i);
+    printj(str);
+    mfree(str);
+}
+
+void printijp(uint32_t i)
+{
+    char * str = its_p(i, buffer);
+    printj(str);
+}
+
+void printcc(char c, uint32_t co)
 {
     unsigned int current_line = current_pos/SCREEN_WIDTH;
     unsigned int current_column = current_pos - current_line*SCREEN_WIDTH;
-    print_char_to_screen(c, current_column, current_line);
+    print_char_to_screen_c(c, current_column, current_line, co);
     current_pos += 1;
+}
+
+void printc(char c)
+{
+    printcc(c, 0);
 }
 
 void clear()
@@ -58,108 +85,146 @@ void tableprint()
 void help_command()
 {
     for(unsigned int i = 0; i < NumberOfCommands; i++) {
-        print(CommandTable[i].name); print(" : "); print(CommandTable[i].description);
+        print(CommandTable[i].name); print(" : "); print(CommandTable[i].description); 
         next_line();
     }
 }
+    
+uint32_t col = 0;
 
 void print_mem()
 {
-    for(int i = 0; i < 64; i++)
-        printc(stuffx(i));
+    if (dynamic_memory[0] != fcode && dynamic_memory[0] != ucode);
+    else {
+    uint32_t u = 0x04;
+    uint32_t f = 0x02;
+    for(int i = 0; i < 1000; i++) {
+        for(int j = 0; j < 80; j++) {
+            char t = stuffx(j+i*80);
+            uint8_t c = dynamic_memory[j+i*80];
+            uint32_t co = (c == fcode)?0:(c == ucode)?0:col;
+            if (col == u)
+                col = (c == ucode)?0:u;
+            else if (col == f)
+                col = (c == fcode)?0:f;
+            else if (col == 0)
+                col = (c == fcode)?f:(c == ucode)?u:0;
+            printcc(t, co);
+            write_serial(t);
+            if (dynamic_memory[j+i*80] == fcode && dynamic_memory[j+i*80 + 1] != ucode && ((dynamic_memory[j+i*80 + 2] != 0 && dynamic_memory[j+i*80 + 3] != 0 && dynamic_memory[j+i*80 + 4] == 0) || dynamic_memory[j+i*80 + 4] == 1)) {
+                printcc(stuffx(j+i*80 +1), f);printcc(stuffx(j+i*80+2), f);
+                printcc(stuffx(j+i*80+3), f); printcc(stuffx(j+i*80+4), f); col = 0;
+                i = j = 100000; //break
+            }
+        }
+        next_line();
+    //
+    }
+    write_serial('\n');
+    }
+    printc((char)((max_free_blocks - 1) - flp_pointer) + '0');
     next_line();
+    int b = 32;
+    char used[b];
+    for (uint16_t i = 0; i < b/*(max_free_blocks - 1) - flp_pointer*/; i++) {
+        if (i == (max_free_blocks - 1) - flp_pointer)
+            printcc('|', 0x03);
+        char a = (char)free_leaf_pile[(max_free_blocks - 1) - i];
+        if (i >= (max_free_blocks - 1) - flp_pointer)
+            used[a] = 1;
+        printc(a + '0');
+    }
+    next_line();
+    for (uint16_t i = 0; i < b; i++) {
+        if (!used[i]) {
+            printc(i + '0');printc(':');
+            for (uint8_t j = 0; j < sizeof(leaf_t); j++)
+                printc(*(j + (uint8_t*)&free_mem_leafs[i]) + '0');
+            printc(' ');
+        }
+    }
+    mem_tree();
+    next_line();
+}
+
+void mem_tree()
+{    
+    printj("----------------");
+    char * ta = tree_to_string(free_mem_tree);
+    if (ta != 0)
+        print(ta);
+    printj("----------------");
 }
 
 tree_t * b_tree;
 
 void memory()
 {
-    for(int i = 0; i < 64+16; i++)
-        printc(stuffx(i));
-    next_line();
-    
+    //print_mem();
+    //mem_tree();
+    print_mem();
     int * mem_info = memory_info();
     for(int i = 1; i < mem_info[0]; i++) {
-        char * str = its(mem_info[i]);
-        print(str);
-        next_line();
+        printij(mem_info[i]);
+    //print_mem();
     }
-    printj("----------------");
-    printj(tree_to_string(free_mem_tree));
-    printj("----------------");
-    printj(its(malloc_count));
+    print_mem();
+    mfree(mem_info);
+    printj(ez); ez[0] = 0;
+    print_mem();
 }
 
 void test_tree()
 {
-    /*struct tree {
-        char (*comp) (uint32_t, uint32_t); // FUNC POINTER STUFF TESt : OK
-    } tree;
-    char add(uint32_t a, uint32_t b) {
-        return 'e';
-    }
-    struct tree t;
-    t.comp = &add;
-    int add2to3(char (*comp) (uint32_t, uint32_t)) {
-        return (*comp)(2, 3);
-    }
-    printc(add2to3(t.comp));
-    next_line();*/
+//     print_mem();
+//     mem_tree();
+//     mem_tree();
     char * str;
-    /*uint8_t comp (uint32_t a, uint32_t b) {
-        return (a > b) ? 1 : (a < b) ? -1 : 0;
-    };*/
-    //printc(STF() + '0');
-    b_tree = init_b_tree(8, (void*)10);//, &comp);
-    //printc((char)b_tree->comp+'0');
+    write_serial('A');
+    
+    b_tree = init_b_tree(8, (void*)10);//printc('8');
+    ez[0] = 0;
     next_line();
-    insert_data(b_tree, 8, (void*)1);
-    insert_data(b_tree, 4, (void*)0);
-    insert_data(b_tree, 6, (void*)0);
-    insert_data(b_tree, 5, (void*)0);
-    /*insert_data(b_tree, 1, 0);
-    insert_data(b_tree, 3, 0);
-    insert_data(b_tree, 2, 0);*/
-    insert_data(b_tree, 8, (void*)2);
-    insert_data(b_tree, 8, (void*)3);
-    insert_data(b_tree, 8, (void*)4);
-    insert_data(b_tree, 8, (void*)5);
-    insert_data(b_tree, 8, (void*)6);
-    insert_data(b_tree, 8, (void*)7);
-    insert_data(b_tree, 8, (void*)8);
-    /*
-    insert_data(b_tree, 8, 10);*/
+    insert_data(b_tree, 8, (void*)1);//printc('8');
+    insert_data(b_tree, 4, (void*)0);//printc('4');
+    insert_data(b_tree, 6, (void*)0);//printc('6');
+    insert_data(b_tree, 5, (void*)0);//printc('5');
+    
+    insert_data(b_tree, 3, (void*)0);//printc('3');//its(51515);
+    //str = tree_to_string(b_tree);//printj(str);
+    insert_data(b_tree, 0, (void*)0);//printc('0');
+    insert_data(b_tree, 2, (void*)0);//printc('2');
+    remove_leaf(b_tree, 8, (void*)10);
     
     str = tree_to_string(b_tree);
     printj(str);
-    insert_data(b_tree, 3, (void*)0);
-    insert_data(b_tree, 0, (void*)0);
-    insert_data(b_tree, 2, (void*)0);
-    //remove_leaf(b_tree, 8, (void*)1);
-    next_line();
-    insert_data(b_tree, 8, (void*)9);
+    print_mem();
+//     print_mem();
+    //mem_tree();
+//     printc('p');
+    mfree(str);
+//     print_mem();
+    //mem_tree();
     
-    /*printj(its((uint32_t)find_leaf(b_tree, (void*)4)));
-    char * str = to_string(b_tree);
-    printj(str);
-    next_line();*/
-    
-    // PROBLEM WITH MALLOC :((((
-    //for(int i = 0; i < 1000; i++) { char * cc = malloc(2); for(int i = 0; i < 2; i++) cc[i] = i%255; }
-    //for(int i = 0; i < 1000; i++) its(5); // THIS DOES
-    
-    /*print(its((uint32_t)b_tree->root->key));                 printc(' ');printj(its(height(b_tree->root)));
-    print(its((uint32_t)b_tree->root->right->key));          printc(' ');printj(its(height(b_tree->root->right)));
-    print(its((uint32_t)b_tree->root->left->key));           printc(' ');printj(its(height(b_tree->root->left)));
-    print(its((uint32_t)b_tree->root->right->right->key));   printc(' ');printj(its(height(b_tree->root->right->right)));
-    print(its((uint32_t)b_tree->root->right->left->key));    printc(' ');printj(its(height(b_tree->root->right->left)));
-    print(its((uint32_t)b_tree->root->left->right->key));    printc(' ');printj(its(height(b_tree->root->left->right)));
-    print(its((uint32_t)b_tree->root->left->left->key));     printc(' ');printj(its(height(b_tree->root->left->left)));*/
-    
-    
-    str = tree_to_string(b_tree);
-    printj(str);
-    
+    /*printij( ((leaf_t*)find_leaf(b_tree, 1))->key );
+    printij( ((leaf_t*)find_leaf(b_tree, 7))->key );*/
+    free_tree(b_tree);
+//     mfree(b_tree->root->left);
+// //     print_mem();
+// //     mem_tree();
+//     mfree(b_tree->root->right);
+// //     print_mem();
+// //     mem_tree();
+//     mfree(b_tree->root);
+// //     printj(buffer);
+//     print_mem();
+// //     mem_tree();
+//     mfree(b_tree);
+//     print_mem();
+//     printj(buffer);
+//     mem_tree();printj(ez);
+    print_mem();
+    mem_tree();
 }
 
 void init_shell()
@@ -173,6 +238,7 @@ void init_shell()
     add_new_command("tableprint", "Print the char/code table", tableprint);
     add_new_command("memory", "print memory infos", memory);
     add_new_command("tree", "test the tree structure", test_tree);
+    add_new_command("memoryp", "print memory infos", print_mem);
 }
 
 void shell()
@@ -222,10 +288,17 @@ void getinput()
             } else if (enter) {
                 //print_str_to_screen("enter", 0, 12);
             }
+        } else if (oldc == 72) { //up
+            if (decal != 0) decal--;
+            print_from_command_str(decal);
+        } else if (oldc == 80) { //down
+            decal++;
+            print_from_command_str(decal);
         } else {
             st[0] = c;//getchar(c,1);
             command_str[i] = st[0];
             print(st);
+            //print(its_p(oldc, buffer));
             i++;
         }
         c = oldc;

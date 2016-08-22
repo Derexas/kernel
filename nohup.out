@@ -1,0 +1,99 @@
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+Sound devices available:
+OpenAL Soft
+Picking OpenAL Soft. If your desired device was missing, make sure you have the appropriate 32-bit libraries installed. If you wanted a different device, configure ~/.openalrc appropriately.
+Perfect OpenAL context attributes GET
+Loading bindings from data/init/interface.txt
+New window size: 1440x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 18x18
+
+Resetting textures
+Resizing font to 18x18
+Resizing font to 18x18
+New window size: 924x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 11x11
+
+New window size: 912x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 11x11
+
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+libpng warning: iCCP: known incorrect sRGB profile
+Resetting textures
+New window size: 902x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 11x11
+
+New window size: 900x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 11x11
+
+New window size: 899x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 10x10
+
+New window size: 893x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 10x10
+
+New window size: 881x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 10x10
+
+New window size: 865x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 10x10
+
+New window size: 857x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 10x10
+
+New window size: 855x450
+Font size: 18x18
+Resizing grid to 80x25
+Resizing font to 10x10
+
+conky: desktop window (1200003) is subwindow of root window (e8)
+conky: window type - desktop
+conky: drawing to created window (0x2800002)
+conky: forked to background, pid is 770
+
+XIO:  fatal IO error 11 (Resource temporarily unavailable) on X server ":0.0"
+      after 4596456 requests (4596456 known processed) with 0 events remaining.
+conky: desktop window (e00003) is subwindow of root window (e8)
+conky: window type - desktop
+conky: drawing to created window (0x3800002)
+conky: forked to background, pid is 322
+
+conky: received SIGINT or SIGTERM to terminate. bye!
+conky: desktop window (e00003) is subwindow of root window (e8)
+conky: window type - desktop
+conky: drawing to created window (0x2000002)
+conky: forked to background, pid is 2623
+
+XIO:  fatal IO error 4 (Interrupted system call) on X server ":0.0"
+      after 852330 requests (852330 known processed) with 5 events remaining.
+conky: desktop window (1000003) is subwindow of root window (e8)
+conky: window type - desktop
+conky: drawing to created window (0x2200002)
+conky: forked to background, pid is 21971
+
+conky: received SIGINT or SIGTERM to terminate. bye!
+XIO:  fatal IO error 11 (Resource temporarily unavailable) on X server ":0.0"
+      after 24835547 requests (24835547 known processed) with 0 events remaining.
